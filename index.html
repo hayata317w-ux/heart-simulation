@@ -3,42 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>リアル3D心臓モデル × Medtronic SelectSite C315HIS シミュレーター</title>
+    <title>Medtronic SelectSite C315HIS シミュレーター</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #ffffff; color: #1f2328; touch-action: none; }
-        #ui-container { position: absolute; top: 10px; left: 10px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px; width: 260px; border: 1px solid #d0d7de; z-index: 10; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-        input[type=range] { width: 100%; margin-top: 10px; height: 8px; }
-        .value-display { font-size: 16px; font-weight: bold; color: #0969da; margin-top: 5px; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; color: #57606a; }
+        
+        /* 📱 スマホ向け上部コンパクトUI */
+        #ui-container { 
+            position: absolute; 
+            top: 10px; 
+            left: 5%; 
+            right: 5%; 
+            background: rgba(255, 255, 255, 0.88); 
+            backdrop-filter: blur(8px);
+            padding: 10px 15px; 
+            border-radius: 20px; 
+            border: 1px solid rgba(208, 221, 238, 0.6); 
+            z-index: 10; 
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .slider-wrapper { flex-grow: 1; display: flex; align-items: center; }
+        input[type=range] { width: 100%; height: 6px; margin: 0; cursor: pointer; }
+        .value-display { font-size: 13px; font-weight: bold; color: #004B87; min-width: 75px; text-align: right; }
+        
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #57606a; font-weight: bold; }
         
         /* 刺激伝導系ラベル */
         .gltf-label {
             position: absolute;
-            background: rgba(13, 17, 23, 0.95);
+            background: rgba(13, 17, 23, 0.9);
             color: #00ff66; 
-            border: 1.5px solid #00ff66;
-            padding: 5px 10px;
-            font-size: 11px;
+            border: 1px solid #00ff66;
+            padding: 3px 6px;
+            font-size: 10px;
             font-weight: bold;
-            border-radius: 6px;
+            border-radius: 4px;
             white-space: nowrap;
-            cursor: grab;
-            user-select: none;
-            box-shadow: 0 4px 12px rgba(0,255,102,0.15);
             z-index: 15;
             transform: translate(-50%, -50%); 
+            pointer-events: none; 
         }
-        .gltf-label:active { cursor: grabbing; background: #00ff66; color: #13111c; }
 
-        /* カテーテル調整用3Dピン共通スタイル */
+        /* カテーテル調整用3Dピン */
         .cath-drag-label {
             position: absolute;
             color: #ffffff;
-            border: 1.5px solid #ffffff;
-            padding: 4px 8px;
-            font-size: 10px;
+            border: 1.2px solid #ffffff;
+            padding: 3px 6px;
+            font-size: 9px;
             font-weight: bold;
-            border-radius: 20px;
+            border-radius: 15px;
             cursor: grab;
             user-select: none;
             z-index: 16;
@@ -46,38 +63,25 @@
         }
         .cath-drag-label:active { cursor: grabbing; background: #ffffff; }
         
-        /* Medtronic仕様のカラー */
-        .color-base { background: #004B87; box-shadow: 0 0 12px rgba(0,75,135,0.6); }
-        .color-mid  { background: #34c759; box-shadow: 0 0 12px rgba(52,199,89,0.6); }
-        .color-tip  { background: #1a1a1a; box-shadow: 0 0 12px rgba(0,0,0,0.6); }
-
-        #export-container { position: absolute; bottom: 10px; left: 10px; z-index: 20; background: rgba(255,255,255,0.95); padding: 10px; border-radius: 8px; border: 1px solid #d0d7de; display: flex; flex-direction: column; gap: 5px; }
-        #export-btn { background: #2ea44f; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; }
-        #export-btn:active { background: #2c974b; }
-        #copy-status { font-size: 11px; color: #2ea44f; font-weight: bold; display: none; margin-top: 2px; text-align: center; }
+        .color-base { background: #004B87; box-shadow: 0 0 8px rgba(0,75,135,0.5); }
+        .color-mid  { background: #34c759; box-shadow: 0 0 8px rgba(52,199,89,0.5); }
+        .color-tip  { background: #1a1a1a; box-shadow: 0 0 8px rgba(0,0,0,0.5); }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
 
-    <div id="loading">3D心臓モデル ＆ Medtronic C315HIS を生成中...</div>
+    <div id="loading">3Dモデル生成中...</div>
     
     <svg id="svg-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4;"></svg>
     <div id="labels-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;"></div>
 
     <div id="ui-container">
-        <h3 style="margin:0; font-size: 13px; color: #1f2328;">Medtronic SelectSite C315HIS</h3>
-        <p style="font-size: 10px; color: #004B87; margin: 3px 0 2px 0;">✨ 指定カスタムデフォルト座標反映版</p>
-        <p style="font-size: 9px; color: #57606a; margin: 0 0 8px 0;">🔵SVC入口 / 🟢右房バックアップ / ⚫シース先端 をドラッグ可</p>
-        <label style="font-size:11px; color:#57606a;">Cアーム角度 (LAO ↔ RAO)</label>
-        <input type="range" id="angle-slider" min="-60" max="60" value="0">
+        <div class="slider-wrapper">
+            <input type="range" id="angle-slider" min="-60" max="60" value="0">
+        </div>
         <div id="angle-text" class="value-display">正面 (AP 0°)</div>
-    </div>
-
-    <div id="export-container">
-        <button id="export-btn" onclick="exportCoordinates()">調整後の全座標をクリップボードにコピー</button>
-        <div id="copy-status">コピーしました！</div>
     </div>
 
     <script>
@@ -97,29 +101,29 @@
         mainLight.position.set(10, 25, 15);
         scene.add(mainLight);
 
-        // 🫀 【反映】送信いただいた指定カスタムデフォルト座標（伝導系）
+        // 確定カスタム座標（伝導系）
         let targetPoints = [
-            { id: 0, type: "label", text: "SA node (洞結節)", pos: new THREE.Vector3(-2.51, 1.13, 1.16), offsetX: -110, offsetY: -40 },
-            { id: 1, type: "label", text: "Bachmann (バッハマン束)", pos: new THREE.Vector3(-0.65, 1.39, -0.19), offsetX: 0, offsetY: -80 },
-            { id: 2, type: "label", text: "AV node (房室結節)", pos: new THREE.Vector3(-1.05, -0.69, 0.38), offsetX: -110, offsetY: -10 },
-            { id: 4, type: "label", text: "RBB (右脚)", pos: new THREE.Vector3(0.19, -1.76, 0.83), offsetX: -90, offsetY: 60 },
-            { id: 5, type: "label", text: "LBB (左脚)", pos: new THREE.Vector3(1.43, -2.10, 0.37), offsetX: 110, offsetY: 20 },
-            { id: 3, type: "label", text: "His bundle (His束)", pos: new THREE.Vector3(-0.21, -0.85, 0.34), offsetX: 80, offsetY: -40 }
+            { id: 0, type: "label", text: "SA node", pos: new THREE.Vector3(-2.51, 1.13, 1.16), offsetX: -60, offsetY: -30 },
+            { id: 1, type: "label", text: "Bachmann", pos: new THREE.Vector3(-0.65, 1.39, -0.19), offsetX: 0, offsetY: -50 },
+            { id: 2, type: "label", text: "AV node", pos: new THREE.Vector3(-1.05, -0.69, 0.38), offsetX: -65, offsetY: -10 },
+            { id: 4, type: "label", text: "RBB", pos: new THREE.Vector3(0.19, -1.76, 0.83), offsetX: -45, offsetY: 40 },
+            { id: 5, type: "label", text: "LBB", pos: new THREE.Vector3(1.43, -2.10, 0.37), offsetX: 55, offsetY: 20 },
+            { id: 3, type: "label", text: "His bundle", pos: new THREE.Vector3(-0.21, -0.85, 0.34), offsetX: 55, offsetY: -30 }
         ];
 
-        // 🫀 【反映】送信いただいた指定カスタムデフォルト座標（カテーテル）
+        // 確定カスタム座標（カテーテル）
         let catheterPoints = [
-            new THREE.Vector3(-2.51,  2.93, 0.85), // 0: 🔵 C315HIS 基部(SVC)
-            new THREE.Vector3(-2.44,  0.62, 1.06), // 1: SVC-RA中間（補間ブレンド初期値）
-            new THREE.Vector3(-2.37, -1.68, 1.27), // 2: 🟢 C315HIS 右房バックアップ
-            new THREE.Vector3(-1.42, -1.34, 1.06), // 3: ディレクショナルカーブ（補間ブレンド初期値）
-            new THREE.Vector3(-0.47, -1.01, 0.85)  // 4: ⚫ C315HIS 先端(遠位チップ)
+            new THREE.Vector3(-2.51,  2.93, 0.85), // 0: 🔵 SVC基部
+            new THREE.Vector3(-2.44,  0.62, 1.06), // 1: 中間
+            new THREE.Vector3(-2.37, -1.68, 1.27), // 2: 🟢 右房バックアップ
+            new THREE.Vector3(-1.42, -1.34, 1.06), // 3: 中間
+            new THREE.Vector3(-0.47, -1.01, 0.85)  // 4: ⚫ 先端チップ
         ];
 
-        // 可動ピンの登録
-        targetPoints.push({ id: 6, type: "cath-base", text: "🔵 C315HIS 基部(SVC)", pos: catheterPoints[0], offsetX: -70, offsetY: -35 });
-        targetPoints.push({ id: 7, type: "cath-mid",  text: "🟢 C315HIS 右房バックアップ", pos: catheterPoints[2], offsetX: -110, offsetY: 10 });
-        targetPoints.push({ id: 8, type: "cath-tip",  text: "⚫ C315HIS 先端(遠位チップ)", pos: catheterPoints[4], offsetX: 40, offsetY: 35 });
+        // 可動ピン
+        targetPoints.push({ id: 6, type: "cath-base", text: "🔵 SVC", pos: catheterPoints[0], offsetX: -45, offsetY: -25 });
+        targetPoints.push({ id: 7, type: "cath-mid",  text: "🟢 RAバックアップ", pos: catheterPoints[2], offsetX: -75, offsetY: 15 });
+        targetPoints.push({ id: 8, type: "cath-tip",  text: "⚫ HIS先端", pos: catheterPoints[4], offsetX: 45, offsetY: 25 });
 
         const labelContainer = document.getElementById('labels-container');
         const svgCanvas = document.getElementById('svg-canvas');
@@ -149,8 +153,8 @@
 
             if (pt.type === "label") {
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('stroke', '#1f2328');
-                path.setAttribute('stroke-width', '1.2');
+                path.setAttribute('stroke', 'rgba(31,35,40,0.6)');
+                path.setAttribute('stroke-width', '1.0');
                 path.setAttribute('fill', 'none');
                 svgCanvas.appendChild(path);
                 pt.lineElement = path;
@@ -163,30 +167,20 @@
             let isDragging = false;
 
             element.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                e.stopPropagation();
-                e.preventDefault();
+                isDragging = true; e.stopPropagation(); e.preventDefault();
             });
 
             window.addEventListener('mousemove', (e) => {
                 if (!isDragging) return;
-
-                const mouse = new THREE.Vector2(
-                    (e.clientX / window.innerWidth) * 2 - 1,
-                    -(e.clientY / window.innerHeight) * 2 + 1
-                );
-
+                const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
                 camera.getWorldDirection(planeNormal);
                 planeNormal.normalize().negate(); 
                 plane.setFromNormalAndCoplanarPoint(planeNormal, pt.anchorRef.position);
-
                 raycaster.setFromCamera(mouse, camera);
                 const intersectPoint = new THREE.Vector3();
-                
                 if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
                     pt.anchorRef.position.copy(intersectPoint);
                     pt.pos.copy(intersectPoint);
-
                     if (pt.type === "cath-base") {
                         catheterPoints[0].copy(intersectPoint);
                         catheterPoints[1].set((catheterPoints[0].x * 0.7 + catheterPoints[2].x * 0.3), (catheterPoints[0].y + catheterPoints[2].y)/2, (catheterPoints[0].z + catheterPoints[2].z)/2);
@@ -211,10 +205,7 @@
             window.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
                 const touch = e.touches[0];
-                const mouse = new THREE.Vector2(
-                    (touch.clientX / window.innerWidth) * 2 - 1,
-                    -(touch.clientY / window.innerHeight) * 2 + 1
-                );
+                const mouse = new THREE.Vector2((touch.clientX / window.innerWidth) * 2 - 1, -(touch.clientY / window.innerHeight) * 2 + 1);
                 camera.getWorldDirection(planeNormal);
                 planeNormal.normalize().negate();
                 plane.setFromNormalAndCoplanarPoint(planeNormal, pt.anchorRef.position);
@@ -223,7 +214,6 @@
                 if (raycaster.ray.intersectPlane(plane, intersectPoint)) {
                     pt.anchorRef.position.copy(intersectPoint);
                     pt.pos.copy(intersectPoint);
-                    
                     if (pt.type === "cath-base") {
                         catheterPoints[0].copy(intersectPoint);
                         catheterPoints[1].set((catheterPoints[0].x * 0.7 + catheterPoints[2].x * 0.3), (catheterPoints[0].y + catheterPoints[2].y)/2, (catheterPoints[0].z + catheterPoints[2].z)/2);
@@ -250,10 +240,7 @@
 
             const geometryMain = new THREE.TubeGeometry(catheterCurve, 64, 0.046, 8, false);
             const materialMain = new THREE.MeshPhongMaterial({
-                color: 0xf6f6f6,
-                specular: 0x555555,
-                shininess: 40,
-                side: THREE.DoubleSide
+                color: 0xf6f6f6, specular: 0x555555, shininess: 40, side: THREE.DoubleSide
             });
             catheterMeshMain = new THREE.Mesh(geometryMain, materialMain);
             scene.add(catheterMeshMain);
@@ -262,10 +249,7 @@
             const tipCurve = new THREE.CatmullRomCurve3(tipPoints);
             const geometryTip = new THREE.TubeGeometry(tipCurve, 5, 0.050, 8, false);
             const materialTip = new THREE.MeshPhongMaterial({
-                color: 0x24292f, 
-                specular: 0x222222,
-                shininess: 30,
-                side: THREE.DoubleSide
+                color: 0x24292f, specular: 0x222222, shininess: 30, side: THREE.DoubleSide
             });
             catheterMeshTip = new THREE.Mesh(geometryTip, materialTip);
             scene.add(catheterMeshTip);
@@ -273,7 +257,6 @@
 
         updateCatheterGeometry();
 
-        // 3D心臓モデルロード
         const loader = new THREE.GLTFLoader();
         let heartModel;
 
@@ -288,16 +271,11 @@
                     const meshName = child.name.toLowerCase();
 
                     if (
-                        meshName.includes('conduction') || 
-                        meshName.includes('node') || 
-                        meshName.includes('bundle') || 
-                        meshName.includes('fiber') || 
-                        meshName.includes('purkinje') ||
-                        meshName.includes('branch') ||
-                        meshName.includes('path') ||
-                        meshName.includes('his') ||
-                        meshName.includes('lbb') ||
-                        meshName.includes('rbb')
+                        meshName.includes('conduction') || meshName.includes('node') || 
+                        meshName.includes('bundle') || meshName.includes('fiber') || 
+                        meshName.includes('purkinje') || meshName.includes('branch') ||
+                        meshName.includes('path') || meshName.includes('his') ||
+                        meshName.includes('lbb') || meshName.includes('rbb')
                     ) {
                         child.material.transparent = false;
                         child.material.opacity = 1.0;
@@ -310,6 +288,7 @@
                         child.material.roughness = 0.1;
                         child.material.metalness = 0.1;
                     } else {
+                        // 🫀 心臓モデルの本来の色味・半透明マテリアル質感を完全復元
                         child.material.transparent = true;
                         child.material.opacity = 0.16; 
                         child.material.depthWrite = false;   
@@ -368,23 +347,6 @@
             });
         }
 
-        window.exportCoordinates = function() {
-            let output = "【調整後の全座標データ（Medtronic C315HIS確定版）】\n\n";
-            targetPoints.forEach(pt => {
-                output += `{ text: "${pt.text}", pos: new THREE.Vector3(${pt.pos.x.toFixed(2)}, ${pt.pos.y.toFixed(2)}, ${pt.pos.z.toFixed(2)}) },\n`;
-            });
-            
-            navigator.clipboard.writeText(output).then(() => {
-                const status = document.getElementById('copy-status');
-                status.style.display = 'block';
-                setTimeout(() => { status.style.display = 'none'; }, 2000);
-            }).catch(err => {
-                console.error("コピー失敗:", err);
-                alert("自動コピーがブロックされました。コンソールログ出力を確認してください。");
-                console.log(output);
-            });
-        }
-
         const slider = document.getElementById('angle-slider');
         const textDisplay = document.getElementById('angle-text');
 
@@ -398,21 +360,21 @@
         slider.addEventListener('input', (e) => setAngle(parseInt(e.target.value)));
 
         window.addEventListener('wheel', (e) => {
-            if (e.target.closest('#ui-container') || e.target.closest('#export-container')) return;
+            if (e.target.closest('#ui-container')) return;
             e.preventDefault(); 
             let currentVal = parseInt(slider.value);
-            currentVal += e.deltaY > 0 ? -2 : 2;
+            currentVal += e.deltaY > 0 ? 2 : -2;
             setAngle(currentVal);
         }, { passive: false });
 
         let isTouching = false; let startX = 0; let startAngle = 0;
         window.addEventListener('touchstart', (e) => {
-            if (e.target.closest('#ui-container') || e.target.closest('#export-container') || e.target.closest('.gltf-label') || e.target.closest('.cath-drag-label')) return;
+            if (e.target.closest('#ui-container') || e.target.closest('.cath-drag-label')) return;
             isTouching = true; startX = e.touches[0].clientX; startAngle = parseInt(slider.value);
         });
         window.addEventListener('touchmove', (e) => {
             if (!isTouching) return; e.preventDefault();
-            const angleChange = Math.round((e.touches[0].clientX - startX) * 0.4); 
+            const angleChange = Math.round((startX - e.touches[0].clientX) * 0.25); 
             setAngle(startAngle + angleChange);
         }, { passive: false });
         window.addEventListener('touchend', () => isTouching = false);
