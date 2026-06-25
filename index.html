@@ -135,6 +135,12 @@
         let catheterMeshTip;
         let catheterCurve;
 
+        // 🔍 ズーム変数（初期の距離12、範囲を5〜25までに制限）
+        let cameraRadius = 12;
+        const minRadius = 5;
+        const maxRadius = 25;
+        let currentAngle = 0;
+
         targetPoints.forEach(pt => {
             const div = document.createElement('div');
             if (pt.type === "label") {
@@ -288,7 +294,6 @@
                         child.material.roughness = 0.1;
                         child.material.metalness = 0.1;
                     } else {
-                        // 🫀 心臓モデルの本来の色味・半透明マテリアル質感を完全復元
                         child.material.transparent = true;
                         child.material.opacity = 0.16; 
                         child.material.depthWrite = false;   
@@ -304,15 +309,15 @@
             document.getElementById('loading').style.display = 'none';
         });
 
-        const radius = 12; 
-        function updateCamera(deg) {
-            const rad = (deg * Math.PI) / 180;
-            camera.position.x = radius * Math.sin(rad);
-            camera.position.z = radius * Math.cos(rad);
+        // 🔄 角度とズーム距離を統合してカメラ位置を計算する関数
+        function updateCamera() {
+            const rad = (currentAngle * Math.PI) / 180;
+            camera.position.x = cameraRadius * Math.sin(rad);
+            camera.position.z = cameraRadius * Math.cos(rad);
             camera.position.y = 0.5; 
             camera.lookAt(0, 0, 0);
         }
-        updateCamera(0); 
+        updateCamera(); 
 
         function updateLabelsAndLines() {
             targetPoints.forEach(pt => {
@@ -353,31 +358,80 @@
         function setAngle(val) {
             val = Math.max(-60, Math.min(60, val));
             slider.value = val;
+            currentAngle = val;
             textDisplay.innerText = val === 0 ? "正面 (AP 0°)" : (val > 0 ? `LAO ${val}°` : `RAO ${Math.abs(val)}°`);
-            updateCamera(val);
+            updateCamera();
         }
 
         slider.addEventListener('input', (e) => setAngle(parseInt(e.target.value)));
 
+        // 💻 マウスホイールでの拡大縮小（ズーム）
         window.addEventListener('wheel', (e) => {
             if (e.target.closest('#ui-container')) return;
             e.preventDefault(); 
-            let currentVal = parseInt(slider.value);
-            currentVal += e.deltaY > 0 ? 2 : -2;
-            setAngle(currentVal);
+            
+            // ホイールの回転方向に応じて距離を加減
+            cameraRadius += e.deltaY * 0.01;
+            cameraRadius = Math.max(minRadius, Math.min(maxRadius, cameraRadius));
+            updateCamera();
         }, { passive: false });
 
-        let isTouching = false; let startX = 0; let startAngle = 0;
+        // 📱 タッチ（スワイプ ＆ ピンチズーム）イベント
+        let isTouching = false; 
+        let startX = 0; 
+        let startAngle = 0;
+        let startTouchDistance = 0;
+        let startCameraRadius = 12;
+
+        // 2つの指の間の距離を測る関数
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
         window.addEventListener('touchstart', (e) => {
             if (e.target.closest('#ui-container') || e.target.closest('.cath-drag-label')) return;
-            isTouching = true; startX = e.touches[0].clientX; startAngle = parseInt(slider.value);
+            
+            if (e.touches.length === 1) {
+                // 👆 1本指なら回転
+                isTouching = true; 
+                startX = e.touches[0].clientX; 
+                startAngle = currentAngle;
+            } else if (e.touches.length === 2) {
+                // ✌️ 2本指ならピンチズーム開始
+                isTouching = false; // 回転は止める
+                startTouchDistance = getTouchDistance(e.touches);
+                startCameraRadius = cameraRadius;
+            }
         });
+
         window.addEventListener('touchmove', (e) => {
-            if (!isTouching) return; e.preventDefault();
-            const angleChange = Math.round((startX - e.touches[0].clientX) * 0.25); 
-            setAngle(startAngle + angleChange);
+            if (e.target.closest('#ui-container') || e.target.closest('.cath-drag-label')) return;
+
+            if (e.touches.length === 1 && isTouching) {
+                // 👆 回転処理
+                e.preventDefault();
+                const angleChange = Math.round((startX - e.touches[0].clientX) * 0.25); 
+                setAngle(startAngle + angleChange);
+            } else if (e.touches.length === 2) {
+                // ✌️ ピンチズーム処理
+                e.preventDefault();
+                const currentDist = getTouchDistance(e.touches);
+                if (startTouchDistance > 0) {
+                    // 指の距離の比率から新しいカメラの距離を算出
+                    const factor = startTouchDistance / currentDist;
+                    cameraRadius = startCameraRadius * factor;
+                    cameraRadius = Math.max(minRadius, Math.min(maxRadius, cameraRadius));
+                    updateCamera();
+                }
+            }
         }, { passive: false });
-        window.addEventListener('touchend', () => isTouching = false);
+
+        window.addEventListener('touchend', (e) => {
+            if (e.touches.length < 2) startTouchDistance = 0;
+            if (e.touches.length === 0) isTouching = false;
+        });
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
