@@ -15,11 +15,16 @@
             right: 5%; 
             background: rgba(255, 255, 255, 0.88); 
             backdrop-filter: blur(8px);
-            padding: 10px 15px; 
+            padding: 8px 15px; 
             border-radius: 20px; 
             border: 1px solid rgba(208, 221, 238, 0.6); 
             z-index: 10; 
             box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .ui-main-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -29,6 +34,18 @@
         input[type=range] { width: 100%; height: 6px; margin: 0; cursor: pointer; }
         .value-display { font-size: 13px; font-weight: bold; color: #004B87; min-width: 75px; text-align: right; }
         
+        /* 🏷️ シースモデル名表示 */
+        .model-title {
+            font-size: 10px;
+            font-weight: bold;
+            color: #57606a;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding-bottom: 2px;
+            margin-bottom: 2px;
+        }
+
         #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 14px; color: #57606a; font-weight: bold; }
         
         /* 刺激伝導系ラベル */
@@ -78,10 +95,13 @@
     <div id="labels-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5;"></div>
 
     <div id="ui-container">
-        <div class="slider-wrapper">
-            <input type="range" id="angle-slider" min="-60" max="60" value="0">
+        <div class="model-title">Medtronic SelectSite™ C315HIS</div>
+        <div class="ui-main-row">
+            <div class="slider-wrapper">
+                <input type="range" id="angle-slider" min="-40" max="40" value="0">
+            </div>
+            <div id="angle-text" class="value-display">正面 (AP 0°)</div>
         </div>
-        <div id="angle-text" class="value-display">正面 (AP 0°)</div>
     </div>
 
     <script>
@@ -135,7 +155,7 @@
         let catheterMeshTip;
         let catheterCurve;
 
-        // 🔍 ズーム変数（初期の距離12、範囲を5〜25までに制限）
+        // ズーム変数
         let cameraRadius = 12;
         const minRadius = 5;
         const maxRadius = 25;
@@ -309,7 +329,7 @@
             document.getElementById('loading').style.display = 'none';
         });
 
-        // 🔄 角度とズーム距離を統合してカメラ位置を計算する関数
+        const radius = 12; 
         function updateCamera() {
             const rad = (currentAngle * Math.PI) / 180;
             camera.position.x = cameraRadius * Math.sin(rad);
@@ -356,7 +376,7 @@
         const textDisplay = document.getElementById('angle-text');
 
         function setAngle(val) {
-            val = Math.max(-60, Math.min(60, val));
+            val = Math.max(-40, Math.min(40, val));
             slider.value = val;
             currentAngle = val;
             textDisplay.innerText = val === 0 ? "正面 (AP 0°)" : (val > 0 ? `LAO ${val}°` : `RAO ${Math.abs(val)}°`);
@@ -365,25 +385,20 @@
 
         slider.addEventListener('input', (e) => setAngle(parseInt(e.target.value)));
 
-        // 💻 マウスホイールでの拡大縮小（ズーム）
         window.addEventListener('wheel', (e) => {
             if (e.target.closest('#ui-container')) return;
             e.preventDefault(); 
-            
-            // ホイールの回転方向に応じて距離を加減
             cameraRadius += e.deltaY * 0.01;
             cameraRadius = Math.max(minRadius, Math.min(maxRadius, cameraRadius));
             updateCamera();
         }, { passive: false });
 
-        // 📱 タッチ（スワイプ ＆ ピンチズーム）イベント
         let isTouching = false; 
         let startX = 0; 
         let startAngle = 0;
         let startTouchDistance = 0;
         let startCameraRadius = 12;
 
-        // 2つの指の間の距離を測る関数
         function getTouchDistance(touches) {
             const dx = touches[0].clientX - touches[1].clientX;
             const dy = touches[0].clientY - touches[1].clientY;
@@ -394,13 +409,11 @@
             if (e.target.closest('#ui-container') || e.target.closest('.cath-drag-label')) return;
             
             if (e.touches.length === 1) {
-                // 👆 1本指なら回転
                 isTouching = true; 
                 startX = e.touches[0].clientX; 
                 startAngle = currentAngle;
             } else if (e.touches.length === 2) {
-                // ✌️ 2本指ならピンチズーム開始
-                isTouching = false; // 回転は止める
+                isTouching = false; 
                 startTouchDistance = getTouchDistance(e.touches);
                 startCameraRadius = cameraRadius;
             }
@@ -410,16 +423,14 @@
             if (e.target.closest('#ui-container') || e.target.closest('.cath-drag-label')) return;
 
             if (e.touches.length === 1 && isTouching) {
-                // 👆 回転処理
                 e.preventDefault();
-                const angleChange = Math.round((startX - e.touches[0].clientX) * 0.25); 
+                // 🔄 スワイプ感度を 0.25 から 0.45 へアップ（より機敏に回転）
+                const angleChange = Math.round((startX - e.touches[0].clientX) * 0.45); 
                 setAngle(startAngle + angleChange);
             } else if (e.touches.length === 2) {
-                // ✌️ ピンチズーム処理
                 e.preventDefault();
                 const currentDist = getTouchDistance(e.touches);
                 if (startTouchDistance > 0) {
-                    // 指の距離の比率から新しいカメラの距離を算出
                     const factor = startTouchDistance / currentDist;
                     cameraRadius = startCameraRadius * factor;
                     cameraRadius = Math.max(minRadius, Math.min(maxRadius, cameraRadius));
